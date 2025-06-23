@@ -32,27 +32,21 @@ If you're ready:
 
 To get started, set up a basic server. If you already have a project you want to use, you can skip to the next section.
 
-1. Create a new Python project and install the required dependencies:
+1. Create a new Python project and set up the virtual environment:
 
 ```bash
 mkdir fingerprint-python-starter && cd fingerprint-python-starter
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install fastapi uvicorn[standard] python-multipart pydantic python-dotenv fingerprint-pro-server-api-sdk
+```
+
+2. Install dependencies from the requirements.txt file:
+
+```bash
+pip install -r requirements.txt
 ```
 
 _Note: This quickstart is written for SDK version 8.x_
-
-2. Create a `requirements.txt` file with the dependencies:
-
-```txt
-fastapi==0.115.6
-uvicorn[standard]==0.32.1
-python-multipart==0.0.20
-pydantic==2.10.4
-python-dotenv==1.0.1
-fingerprint-pro-server-api-sdk==8.7.0
-```
 
 3. Create a new file called `server.py` and add a basic FastAPI server setup:
 
