@@ -97,7 +97,9 @@ api_key = os.getenv("FINGERPRINT_API_KEY")
 if not api_key:
     raise ValueError("FINGERPRINT_API_KEY environment variable is required")
 
-# Initialize Fingerprint client
+# Initialize Fingerprint client with your Fingerprint.js subscription region
+# Available regions: "us" (default), "eu", "ap"
+# You can find your region in the Fingerprint dashboard under your API keys
 configuration = fingerprint_pro_server_api_sdk.Configuration(api_key=api_key, region="eu")
 client = fingerprint_pro_server_api_sdk.FingerprintApi(configuration)
 ```
@@ -267,12 +269,6 @@ The implementation includes several additional endpoints for testing and monitor
 - **Health check**: `GET /health` - Returns server status
 - **View accounts**: `GET /api/accounts` - Lists all created accounts (for testing purposes)
 
-## Next steps
-
-You now have a working back-end fraud check using Fingerprint. From here, you can expand your logic with more Smart Signals, adjust thresholds based on your risk tolerance, or introduce additional checks for suspicious users.
-
-These same techniques apply to a wide range of fraud prevention use cases, from detecting fake reviews to blocking payment abuse or preventing account takeover.
-
 ## API Reference
 
 ### POST /api/create-account
@@ -289,6 +285,20 @@ Creates a new account with fraud detection.
 }
 ```
 
+**Example request:**
+
+```bash
+curl -X POST http://localhost:3000/api/create-account \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requestId": "example-request-id-12345",
+    "username": "test@example.com",
+    "password": "password123"
+  }'
+```
+
+**Note:** Replace the requestId with a valid Fingerprint requestId from your front-end implementation. The example requestId above is just a placeholder and won't work without a real Fingerprint identification event
+
 **Response:**
 
 - `200`: Account created successfully
@@ -301,9 +311,17 @@ Creates a new account with fraud detection.
 
 Returns server health status.
 
+```bash
+curl http://localhost:3000/health
+```
+
 ### GET /api/accounts
 
 Returns all created accounts (for testing purposes).
+
+```bash
+curl http://localhost:3000/api/accounts
+```
 
 ## Troubleshooting
 
@@ -317,3 +335,40 @@ Returns all created accounts (for testing purposes).
 ### Debug mode:
 
 The server includes extensive logging to help debug issues. Check the console output for detailed information about each request.
+
+## Get the code
+
+You can find the complete code for this quickstart in the GitHub repository:
+
+**[https://github.com/sedyldz/fingerprint-python-starter](https://github.com/sedyldz/fingerprint-python-starter)**
+
+To get started quickly:
+
+```bash
+git clone <https://github.com/sedyldz/fingerprint-python-starter>
+cd fingerprint-python-starter
+```
+
+The repository contains:
+
+- Complete FastAPI server implementation
+- All required dependencies in `requirements.txt`
+- Environment configuration with `.env.example`
+- Simple error handling and logging
+- Additional testing endpoints
+
+## Next steps
+
+You now have a working back-end fraud check using Fingerprint. From here, you can expand your logic with more Smart Signals, adjust thresholds based on your risk tolerance, or introduce additional checks for suspicious users.
+
+These same techniques apply to a wide range of fraud prevention use cases, from detecting fake reviews to blocking payment abuse or preventing account takeovers.
+
+To go further, check out our **use case tutorials** for step-by-step guides tailored to specific problems you can solve with Fingerprint.
+
+Check out these related resources:
+
+- [Python SDK Reference](https://github.com/fingerprintjs/fingerprintjs-pro-server-api-python-sdk)
+- **Vue front end quickstart**
+- [API reference for the Events endpoint](https://dev.fingerprint.com/reference/server-api-get-event)
+- **Use case tutorial: Detecting new account fraud**
+- [Low-latency identification with Sealed Client Results](https://dev.fingerprint.com/docs/sealed-client-results)
