@@ -87,7 +87,6 @@ When making the initial visitor identification request in the front end, you rec
 import os
 from dotenv import load_dotenv
 import fingerprint_pro_server_api_sdk
-from fingerprint_pro_server_api_sdk.rest import ApiException
 
 # Load environment variables from .env file
 load_dotenv()
@@ -113,17 +112,13 @@ FINGERPRINT_API_KEY=your-secret-api-key-here
 3. In your `/api/create-account` route, use the `requestId` you are sending from the front end to fetch the full visitor identification details:
 
 ```python
-from pydantic import BaseModel
-
-class CreateAccountRequest(BaseModel):
-    requestId: str
-    username: str
-    password: str
-
 @app.post("/api/create-account")
-async def create_account(request: CreateAccountRequest):
+async def create_account(request: dict):
     # Get the full visitor identification details using the requestId
-    event = client.get_event(request.requestId)
+    event = client.get_event(request["requestId"])
+
+    # Convert event to dictionary for easier access
+    event_dict = event.to_dict() if hasattr(event, 'to_dict') else event.__dict__
 
     # ...
 ```
@@ -139,30 +134,10 @@ A simple but powerful way to prevent fraudulent account creation is to block aut
 1. In your `/api/create-account` route, check the bot signal returned in the event object:
 
 ```python
-    # Check for bot activity (only if bot detection data is available)
-    bot_detected = False
+    # Check for bot activity
     bot_result = "unknown"
-
-    try:
-        if (
-            "botd" in event_dict["products"] and
-            event_dict["products"]["botd"] and
-            event_dict["products"]["botd"]["data"] and
-            "bot" in event_dict["products"]["botd"]["data"]
-        ):
-            bot_result = event_dict["products"]["botd"]["data"]["bot"]["result"]
-            bot_detected = bot_result != "notDetected"
-    except (KeyError, TypeError):
-        print("Bot detection data not available in response")
-
-    if bot_detected:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "error": "Bot detected. Failed to create account.",
-                "botResult": bot_result
-            }
-        )
+    if "botd" in event_dict["products"] and event_dict["products"]["botd"]["data"]["bot"]["result"] == "detected":
+        raise HTTPException(status_code=403, detail="Bot detected")
 ```
 
 This signal returns `good` for known bots like search engines, `bad` for automation tools, headless browsers, or other signs of automation, and `notDetected` when no bot activity is found. You can also layer in other Smart Signals to catch more suspicious devices. For example, you can use Fingerprint's [Suspect Score](https://dev.fingerprint.com/docs/suspect-score) to determine when to add additional friction to create an account.
@@ -199,11 +174,7 @@ init_database()
 
 ```python
     # Extract visitor ID
-    try:
-        visitor_id = event_dict["products"]["identification"]["data"]["visitorId"]
-    except (KeyError, TypeError):
-        # Try accessing as object attributes
-        visitor_id = event.products.identification.data.visitor_id
+    visitor_id = event_dict["products"]["identification"]["data"]["visitor_id"]
 ```
 
 3. Check if this device has already created an account; if yes, block the account creation:
@@ -221,18 +192,12 @@ init_database()
 
     if row[0] > 0:
         conn.close()
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "error": "Device already has an account. Failed to create account.",
-                "visitorId": visitor_id
-            }
-        )
+        raise HTTPException(status_code=429, detail="Device already has an account")
 
     # Otherwise, insert the new account
     cursor.execute(
         "INSERT INTO accounts (username, password, visitorId) VALUES (?, ?, ?)",
-        (request.username, request.password, visitor_id)
+        (request["username"], request["password"], visitor_id)
     )
     conn.commit()
     conn.close()
@@ -248,7 +213,7 @@ Now that everything is set up, you can test the full flow using your existing fr
 
 ### Before you test
 
-If your front end is running on a different port (like localhost:5173 or localhost:3001), you may run into CORS issues for testing. The CORS middleware is already configured in the setup above for local development & testing.
+If your front end is running on a different port (like localhost:5173 or localhost:3000), you may run into CORS issues for testing. The CORS middleware is already configured in the setup above for local development & testing.
 
 ### Test the implementation
 
@@ -261,13 +226,6 @@ python server.py
 2. In your front end, trigger a sign-up request that sends the `requestId`, `username`, and `password` to your `/api/create-account` endpoint.
 3. Test the intended behavior and confirm that if the same device tries to create multiple accounts, the second attempt should be rejected.
 4. Bonus: Try creating an account using a headless browser.
-
-## Additional endpoints
-
-The implementation includes several additional endpoints for testing and monitoring:
-
-- **Health check**: `GET /health` - Returns server status
-- **View accounts**: `GET /api/accounts` - Lists all created accounts (for testing purposes)
 
 ## API Reference
 
@@ -288,7 +246,7 @@ Creates a new account with fraud detection.
 **Example request:**
 
 ```bash
-curl -X POST http://localhost:3000/api/create-account \
+curl -X POST http://localhost:3001/api/create-account \
   -H "Content-Type: application/json" \
   -d '{
     "requestId": "example-request-id-12345",
@@ -306,56 +264,6 @@ curl -X POST http://localhost:3000/api/create-account \
 - `403`: Bot detected
 - `429`: Device already has an account
 - `500`: Server error
-
-### GET /health
-
-Returns server health status.
-
-```bash
-curl http://localhost:3000/health
-```
-
-### GET /api/accounts
-
-Returns all created accounts (for testing purposes).
-
-```bash
-curl http://localhost:3000/api/accounts
-```
-
-## Troubleshooting
-
-### Common issues:
-
-1. **Import errors**: Make sure you've installed all dependencies from `requirements.txt`
-2. **API key errors**: Ensure your `.env` file contains the correct `FINGERPRINT_API_KEY`
-3. **CORS issues**: The CORS middleware is configured for local development. In production, specify your frontend domain
-4. **Database errors**: Ensure the `database.db` file is writable in your project directory
-
-### Debug mode:
-
-The server includes extensive logging to help debug issues. Check the console output for detailed information about each request.
-
-## Get the code
-
-You can find the complete code for this quickstart in the GitHub repository:
-
-**[https://github.com/sedyldz/fingerprint-python-starter](https://github.com/sedyldz/fingerprint-python-starter)**
-
-To get started quickly:
-
-```bash
-git clone <https://github.com/sedyldz/fingerprint-python-starter>
-cd fingerprint-python-starter
-```
-
-The repository contains:
-
-- Complete FastAPI server implementation
-- All required dependencies in `requirements.txt`
-- Environment configuration with `.env.example`
-- Simple error handling and logging
-- Additional testing endpoints
 
 ## Next steps
 
