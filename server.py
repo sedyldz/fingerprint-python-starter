@@ -83,57 +83,22 @@ async def create_account(request: CreateAccountRequest):
         )
 
     try:
-        # Get the full visitor identification details using the requestId
+        # Get visitor identification details using the requestId
         event = client.get_event(request.requestId)
-
-        # Debug: Print the type and attributes of the event object
-        print(f"Event type: {type(event)}")
-        print(f"Event attributes: {dir(event)}")
         
-        # Try different ways to access the data
-        if hasattr(event, 'to_dict'):
-            event_dict = event.to_dict()
-        elif hasattr(event, '__dict__'):
-            event_dict = event.__dict__
-        else:
-            # If it's already a dict-like object, try to access it directly
-            event_dict = event
-
-        print("Fingerprint event received:", json.dumps(event_dict, indent=2, default=str))
-
-        # Extract visitor ID - try different access patterns
-        try:
-            visitor_id = event_dict["products"]["identification"]["data"]["visitorId"]
-        except (KeyError, TypeError):
-            # Try accessing as object attributes
-            visitor_id = event.products.identification.data.visitor_id
-
-        # Check for bot activity (only if bot detection data is available)
-        bot_detected = False
+        # Convert event to dictionary for easier access
+        event_dict = event.to_dict() if hasattr(event, 'to_dict') else event.__dict__
+        
+        # Extract visitor ID
+        visitor_id = event_dict["products"]["identification"]["data"]["visitorId"]
+        
+        # Check for bot activity
         bot_result = "unknown"
-
-        try:
-            # Try dictionary access first
-            if (
-                "botd" in event_dict["products"] and
-                event_dict["products"]["botd"] and
-                event_dict["products"]["botd"]["data"] and
-                "bot" in event_dict["products"]["botd"]["data"]
-            ):
-                bot_result = event_dict["products"]["botd"]["data"]["bot"]["result"]
-                bot_detected = bot_result != "notDetected"
-            else:
-                print("Bot detection data not available in response")
-        except (KeyError, TypeError):
-            # Try object attribute access
-            try:
-                if hasattr(event.products, 'botd') and event.products.botd:
-                    bot_result = event.products.botd.data.bot.result
-                    bot_detected = bot_result != "notDetected"
-                else:
-                    print("Bot detection data not available in response")
-            except AttributeError:
-                print("Bot detection data not available in response")
+        bot_detected = False
+        
+        if "botd" in event_dict["products"] and event_dict["products"]["botd"]["data"]["bot"]["result"]:
+            bot_result = event_dict["products"]["botd"]["data"]["bot"]["result"]
+            bot_detected = bot_result != "notDetected"
 
         if bot_detected:
             raise HTTPException(
@@ -164,7 +129,7 @@ async def create_account(request: CreateAccountRequest):
                 }
             )
 
-        # Otherwise, insert the new account
+        # Insert the new account
         cursor.execute(
             "INSERT INTO accounts (username, password, visitorId) VALUES (?, ?, ?)",
             (request.username, request.password, visitor_id)
