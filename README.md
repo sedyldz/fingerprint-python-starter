@@ -1,8 +1,8 @@
-# Fingerprint.js Python Backend Quickstart
+# Fingerprint Python Backend Quickstart
 
-This quickstart guide shows you how to build a Python backend that uses Fingerprint.js to prevent fraudulent account creation. You'll learn how to:
+This quickstart guide shows you how to build a Python backend that uses Fingerprint to prevent fraudulent account creation. You'll learn how to:
 
-- Set up a FastAPI server with Fingerprint.js integration
+- Set up a FastAPI server with Fingerprint integration
 - Retrieve visitor identification data using the Server API
 - Block bots and suspicious devices
 - Prevent multiple signups from the same device
@@ -51,7 +51,7 @@ _Note: This quickstart is written for SDK version 8.x_
 3. Create a new file called `server.py` and add a basic FastAPI server setup:
 
 ```python
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()

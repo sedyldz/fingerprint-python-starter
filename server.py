@@ -1,13 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import sqlite3
-import json
 import os
-from typing import Optional
 from dotenv import load_dotenv
 import fingerprint_pro_server_api_sdk
-from fingerprint_pro_server_api_sdk.rest import ApiException
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,21 +46,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Pydantic models for request/response validation
-class CreateAccountRequest(BaseModel):
-    requestId: str
-    username: str
-    password: str
-
-class CreateAccountResponse(BaseModel):
-    status: str
-    visitorId: str
-    botResult: str
-
-@app.post("/api/create-account", response_model=CreateAccountResponse)
-async def create_account(request: CreateAccountRequest):
+@app.post("/api/create-account")
+async def create_account(request: dict):
     # Get visitor identification details using the requestId
-    event = client.get_event(request.requestId)
+    event = client.get_event(request["requestId"])
     
     # Convert event to dictionary for easier access
     event_dict = event.to_dict() if hasattr(event, 'to_dict') else event.__dict__
@@ -94,39 +79,22 @@ async def create_account(request: CreateAccountRequest):
     # Insert the new account
     cursor.execute(
         "INSERT INTO accounts (username, password, visitorId) VALUES (?, ?, ?)",
-        (request.username, request.password, visitor_id)
+        (request["username"], request["password"], visitor_id)
     )
     conn.commit()
     conn.close()
 
-    return CreateAccountResponse(
-        status="Account created successfully!",
-        visitorId=visitor_id,
-        botResult=bot_result
-    )
+    return {
+        "status": "Account created successfully!",
+        "visitorId": visitor_id,
+        "botResult": bot_result
+    }
 
-@app.get("/health")
-async def health_check():
-    return {"status": "Server is running"}
 
-@app.get("/api/accounts")
-async def get_accounts():
-    conn = sqlite3.connect("database.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, username, visitorId FROM accounts")
-    rows = cursor.fetchall()
-    conn.close()
-    
-    accounts = [
-        {"id": row[0], "username": row[1], "visitorId": row[2]}
-        for row in rows
-    ]
-    return {"accounts": accounts}
 
 if __name__ == "__main__":
     import uvicorn
     print("Server starting on http://localhost:3001")
-    print("Health check: http://localhost:3001/health")
     print("Create account: POST http://localhost:3001/api/create-account")
-    print("View accounts: GET http://localhost:3001/api/accounts")
+
     uvicorn.run(app, host="0.0.0.0", port=3001) 
